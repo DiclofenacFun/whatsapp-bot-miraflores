@@ -1,0 +1,35 @@
+{
+  "5493413515697@c.us": {
+    "lote": "870",
+    "nombre": "Tomas Soria",
+    "apellido": "Soria",
+    "pedidos": [
+      {
+        "fecha": "2025-06-02T19:25:05.923Z",
+        "items": [
+          {
+            "nombre": "Fideos con crema",
+            "precio": 450
+          },
+          {
+            "nombre": "Milanesa con papas",
+            "precio": 700
+          },
+          {
+            "nombre": "Cerveza",
+            "precio": 200
+          }
+        ],
+        "metodoPago": "Pago al cadete",
+        "total": 1350
+      }
+    ],
+    "estado": "listo",
+    "pedidoActual": {
+      "estado": "inicio",
+      "categoria": null,
+      "items": [],
+      "metodoPago": null
+    }
+  }
+}
