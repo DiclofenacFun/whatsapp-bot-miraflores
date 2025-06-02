@@ -1,4 +1,5 @@
-const qrcode = require('qrcode-terminal');
+
+const qrcode = require('qrcode');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 
 const client = new Client({
@@ -8,7 +9,6 @@ const client = new Client({
 // Base de datos de usuarios (temporal en memoria)
 const usuarios = {};
 
-// Precios asignados por producto
 const productos = {
     pastas: [
         { nombre: 'Spaghetti Bolognesa', precio: 3000 },
@@ -35,7 +35,14 @@ const productos = {
 const pedidos = {};
 
 client.on('qr', qr => {
-    qrcode.generate(qr, { small: true });
+    qrcode.toDataURL(qr, (err, url) => {
+        if (err) {
+            console.error('❌ Error generando el QR:', err);
+            return;
+        }
+        console.log('📱 Escaneá este código QR en tu navegador:');
+        console.log(url);
+    });
 });
 
 client.on('ready', () => {
@@ -56,31 +63,21 @@ client.on('message', async msg => {
 
     const pedido = pedidos[chatId];
 
-    // Registro: pedimos nombre y apellido primero
     if (pedido.estado === 'registro') {
-        await msg.reply('👋 ¡Bienvenido/a a *Club House Miraflores*! Por favor escribí tu *nombre y apellido*.');
-        pedido.estado = 'esperando_lote';
-        return;
-    }
-
-    // Pedimos lote después
-    if (pedido.estado === 'esperando_lote') {
-        usuarios[chatId] = usuarios[chatId] || {};
-        usuarios[chatId].nombre = msg.body.trim();
-
-        await msg.reply('Perfecto, ahora escribí tu *número de lote*.');
+        await msg.reply('👋 ¡Bienvenido/a a *Club House Miraflores*! Para comenzar, por favor escribí tu *nombre y apellido*, y luego el *número de lote*.');
         pedido.estado = 'esperando_datos';
         return;
     }
 
-    // Guardamos lote
     if (pedido.estado === 'esperando_datos') {
-        const lote = msg.body.trim();
-        if (!lote) {
-            return msg.reply('Por favor escribí un número de lote válido.');
+        const partes = msg.body.trim().split(',');
+        if (partes.length < 2) {
+            return msg.reply('Por favor escribí los datos en el formato: *Nombre Apellido, Lote 45*');
         }
-        usuarios[chatId].lote = lote;
-
+        usuarios[chatId] = {
+            nombre: partes[0].trim(),
+            lote: partes[1].trim()
+        };
         pedido.estado = 'inicio';
         return msg.reply(`🙌 Gracias ${usuarios[chatId].nombre}, ya registramos tu lote (${usuarios[chatId].lote}). Escribí *menu* para comenzar tu pedido.`);
     }
@@ -112,11 +109,15 @@ Seleccione una categoría:
             pedido.categoria = categoria;
             pedido.estado = 'esperando_producto';
 
-            return msg.reply(`📋 *${categoria.charAt(0).toUpperCase() + categoria.slice(1)}*\n` +
+            return msg.reply(`📋 *${categoria.charAt(0).toUpperCase() + categoria.slice(1)}*
+` +
                 productos[categoria]
                     .map((prod, i) => `${i + 1}. ${prod.nombre} - $${prod.precio}`)
-                    .join('\n') +
-                '\n\nEscribí el número del producto que querés agregar.');
+                    .join('
+') +
+                '
+
+Escribí el número del producto que querés agregar.');
         } else {
             return msg.reply('Por favor, elegí una opción válida (1-4).');
         }
@@ -133,7 +134,8 @@ Seleccione una categoría:
             pedido.total += producto.precio;
             pedido.estado = 'preguntar_mas';
 
-            return msg.reply(`✅ Agregaste: *${producto.nombre}*\n¿Querés algo más? (sí/no)`);
+            return msg.reply(`✅ Agregaste: *${producto.nombre}*
+¿Querés algo más? (sí/no)`);
         } else {
             return msg.reply('Número inválido. Elegí una opción del menú anterior.');
         }
@@ -153,43 +155,58 @@ Seleccione una categoría:
             `);
         } else if (texto === 'no') {
             pedido.estado = 'esperando_pago';
-            return msg.reply(`💳 ¿Cómo desea pagar?\n1️⃣ Al cadete\n2️⃣ Por transferencia`);
+            return msg.reply(`💳 ¿Cómo desea pagar?
+1️⃣ Al cadete
+2️⃣ Por transferencia`);
         } else {
             return msg.reply('Por favor respondé "sí" o "no".');
         }
     }
 
     if (pedido.estado === 'esperando_pago') {
-        if (texto === '1' || texto === '2') {
-            pedido.metodoPago = texto === '1' ? 'Pago al cadete' : 'Transferencia';
-
-            const cliente = usuarios[chatId];
-            const lista = pedido.items.map((item, i) => `${i + 1}. ${item.nombre} - $${item.precio}`).join('\n');
-
-            let resumen = `🧾 *Resumen del pedido de ${cliente.nombre} (${cliente.lote})*\n\n` +
-                          `*Productos:*\n${lista}\n\n` +
-                          `*Método de pago:* ${pedido.metodoPago}\n` +
-                          `*Total:* $${pedido.total}\n\n` +
-                          `🙏 ¡Gracias por tu pedido en *Club House Miraflores*!`;
-
-            if (pedido.metodoPago === 'Transferencia') {
-                resumen += `\n\n💳 *Datos para transferir:*\nCBU: 1234567890123456789012\nAlias: club.miraflores.mp`;
-            }
-
-            // Enviar resumen al cliente
-            await msg.reply(resumen);
-
-            // Enviar resumen a cocina (tu número)
-            const miNumero = '5493416542022@c.us';
-            await client.sendMessage(miNumero, `📬 *Nuevo pedido recibido:*\n\n${resumen}`);
-
-            // Resetear pedido para nuevo ciclo
-            pedidos[chatId] = { estado: 'inicio', items: [], total: 0 };
-
-            return;
+        if (texto === '1') {
+            pedido.metodoPago = 'Pago al cadete';
+        } else if (texto === '2') {
+            pedido.metodoPago = 'Transferencia';
         } else {
-            return msg.reply('Por favor escribí *1* para Pago al cadete o *2* para Transferencia.');
+            return msg.reply('Elegí "1" o "2" como método de pago.');
         }
+
+        const cliente = usuarios[chatId];
+        const lista = pedido.items.map((item, i) => `${i + 1}. ${item.nombre} - $${item.precio}`).join('
+');
+
+        let resumen = `🧾 *Resumen del pedido de ${cliente.nombre} (${cliente.lote})*
+
+` +
+                      `*Productos:*
+${lista}
+
+` +
+                      `*Método de pago:* ${pedido.metodoPago}
+` +
+                      `*Total:* $${pedido.total}
+
+` +
+                      `🙏 ¡Gracias por tu pedido en *Club House Miraflores*!`;
+
+        if (pedido.metodoPago === 'Transferencia') {
+            resumen += `
+
+💳 *Datos para transferir:*
+CBU: 1234567890123456789012
+Alias: club.miraflores.mp`;
+        }
+
+        await msg.reply(resumen);
+
+        const miNumero = '5493416542022@c.us';
+        await client.sendMessage(miNumero, `📬 *Nuevo pedido recibido:*
+
+${resumen}`);
+
+        pedidos[chatId] = { estado: 'inicio', items: [], total: 0 };
+        return;
     }
 
     return msg.reply('Escribí "menu" para comenzar un pedido.');
