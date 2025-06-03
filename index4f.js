@@ -113,8 +113,7 @@ Seleccione una categoría:
 ` +
                 productos[categoria]
                     .map((prod, i) => `${i + 1}. ${prod.nombre} - $${prod.precio}`)
-                    .join('
-') +
+                    .join('\n')
                 '
 
 Escribí el número del producto que querés agregar.');
