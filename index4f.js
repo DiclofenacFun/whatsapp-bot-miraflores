@@ -1,4 +1,3 @@
-
 const qrcode = require('qrcode');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 
@@ -109,14 +108,11 @@ Seleccione una categoría:
             pedido.categoria = categoria;
             pedido.estado = 'esperando_producto';
 
-            return msg.reply(`📋 *${categoria.charAt(0).toUpperCase() + categoria.slice(1)}*
-` +
+            return msg.reply(`📋 *${categoria.charAt(0).toUpperCase() + categoria.slice(1)}*\n` +
                 productos[categoria]
                     .map((prod, i) => `${i + 1}. ${prod.nombre} - $${prod.precio}`)
-                    .join('\n')
-                '
-
-Escribí el número del producto que querés agregar.');
+                    .join('\n') +
+                `\n\nEscribí el número del producto que querés agregar.`);
         } else {
             return msg.reply('Por favor, elegí una opción válida (1-4).');
         }
@@ -133,8 +129,7 @@ Escribí el número del producto que querés agregar.');
             pedido.total += producto.precio;
             pedido.estado = 'preguntar_mas';
 
-            return msg.reply(`✅ Agregaste: *${producto.nombre}*
-¿Querés algo más? (sí/no)`);
+            return msg.reply(`✅ Agregaste: *${producto.nombre}*\n¿Querés algo más? (sí/no)`);
         } else {
             return msg.reply('Número inválido. Elegí una opción del menú anterior.');
         }
@@ -172,37 +167,22 @@ Seleccione una categoría:
         }
 
         const cliente = usuarios[chatId];
-        const lista = pedido.items.map((item, i) => `${i + 1}. ${item.nombre} - $${item.precio}`).join('
-');
+        const lista = pedido.items.map((item, i) => `${i + 1}. ${item.nombre} - $${item.precio}`).join('\n');
 
-        let resumen = `🧾 *Resumen del pedido de ${cliente.nombre} (${cliente.lote})*
-
-` +
-                      `*Productos:*
-${lista}
-
-` +
-                      `*Método de pago:* ${pedido.metodoPago}
-` +
-                      `*Total:* $${pedido.total}
-
-` +
+        let resumen = `🧾 *Resumen del pedido de ${cliente.nombre} (${cliente.lote})*\n\n` +
+                      `*Productos:*\n${lista}\n\n` +
+                      `*Método de pago:* ${pedido.metodoPago}\n` +
+                      `*Total:* $${pedido.total}\n\n` +
                       `🙏 ¡Gracias por tu pedido en *Club House Miraflores*!`;
 
         if (pedido.metodoPago === 'Transferencia') {
-            resumen += `
-
-💳 *Datos para transferir:*
-CBU: 1234567890123456789012
-Alias: club.miraflores.mp`;
+            resumen += `\n\n💳 *Datos para transferir:*\nCBU: 1234567890123456789012\nAlias: club.miraflores.mp`;
         }
 
         await msg.reply(resumen);
 
         const miNumero = '5493416542022@c.us';
-        await client.sendMessage(miNumero, `📬 *Nuevo pedido recibido:*
-
-${resumen}`);
+        await client.sendMessage(miNumero, `📬 *Nuevo pedido recibido:*\n\n${resumen}`);
 
         pedidos[chatId] = { estado: 'inicio', items: [], total: 0 };
         return;
